@@ -1,31 +1,46 @@
-import { setLocalStorage } from "./utils.mjs";
-import ProductData from "./ProductData.mjs";
+import { fetchProductData, getUrlParam, renderWithTemplate } from "./utils.mjs";
+import { addToCart } from "./cart.mjs";
 
-const dataSource = new ProductData("tents");
+const productDetailElement = document.querySelector("#product-details");
+const addToCartButton = document.querySelector("#add-to-cart");
 
-// Function to add product to cart
-function addProductToCart(product) {
-  setLocalStorage("so-cart", product);
-}
+// Get product ID from URL parameters
+const productId = getUrlParam("id");
 
-// Add to Cart button event handler
-async function addToCartHandler(e) {
-  try {
-    const productId = e.target.dataset.id;
-    const product = await dataSource.findProductById(productId);
+/**
+ * Loads product details dynamically based on product ID.
+ */
+async function loadProductDetails() {
+    try {
+        if (!productId) {
+            throw new Error("No product ID provided in the URL.");
+        }
 
-    if (product) {
-      addProductToCart(product);
-      console.log("Product added to cart:", product);
-    } else {
-      console.error("Product not found.");
+        const apiUrl = `${import.meta.env.VITE_SERVER_URL}/products/${productId}`;
+        const product = await fetchProductData(apiUrl);
+
+        if (!product) {
+            throw new Error("Product not found.");
+        }
+
+        // Load product details template
+        const productTemplate = await fetch("/partials/product-detail.html").then(res => res.text());
+
+        // Render product details on the page
+        renderWithTemplate(productTemplate, product, productDetailElement);
+
+        // Set event listener for Add to Cart button
+        if (addToCartButton) {
+            addToCartButton.addEventListener("click", () => {
+                addToCart(product);
+                alert(`${product.name} has been added to your cart.`);
+            });
+        }
+    } catch (error) {
+        console.error("Error loading product details:", error);
+        productDetailElement.innerHTML = `<p class="error">Failed to load product details. Please try again later.</p>`;
     }
-  } catch (error) {
-    console.error("Error adding product to cart:", error);
-  }
 }
 
-// Add event listener to "Add to Cart" button
-document
-  .getElementById("addToCart")
-  .addEventListener("click", addToCartHandler);
+// Initialize product details page
+loadProductDetails();
